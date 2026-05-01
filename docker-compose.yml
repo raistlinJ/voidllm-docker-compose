@@ -1,0 +1,71 @@
+services:
+  voidllm:
+    image: ghcr.io/voidmind-io/voidllm:latest
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-UTC}
+      VOIDLLM_ADMIN_KEY: ${VOIDLLM_ADMIN_KEY}
+      VOIDLLM_ENCRYPTION_KEY: ${VOIDLLM_ENCRYPTION_KEY}
+      VOIDLLM_DATABASE_DSN: /data/voidllm.db
+      VOIDLLM_LICENSE: ${VOIDLLM_LICENSE:-}
+    command:
+      - voidllm
+      - --config
+      - /etc/voidllm/voidllm.yaml
+    expose:
+      - "8080"
+      - "8443"
+    volumes:
+      - ./voidllm/voidllm.yaml:/etc/voidllm/voidllm.yaml:ro
+      - ./volumes/voidllm-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      voidllm:
+        condition: service_healthy
+    environment:
+      DOMAIN: ${DOMAIN}
+      CERTBOT_WEBROOT: /var/www/certbot
+      LETSENCRYPT_LIVE_DIR: /etc/letsencrypt/live/${DOMAIN}
+    command: ["/bin/sh", "/opt/nginx/scripts/start.sh"]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/templates:/opt/nginx/templates:ro
+      - ./nginx/scripts/start.sh:/opt/nginx/scripts/start.sh:ro
+      - ./volumes/letsencrypt:/etc/letsencrypt
+      - ./volumes/certbot-www:/var/www/certbot
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/nginx-health >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  certbot:
+    image: certbot/certbot:latest
+    restart: unless-stopped
+    depends_on:
+      nginx:
+        condition: service_started
+    environment:
+      DOMAIN: ${DOMAIN}
+      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL}
+      LETSENCRYPT_STAGING: ${LETSENCRYPT_STAGING:-0}
+      CERTBOT_WEBROOT: /var/www/certbot
+      CERTBOT_RENEW_INTERVAL: ${CERTBOT_RENEW_INTERVAL:-43200}
+      CERTBOT_RETRY_INTERVAL: ${CERTBOT_RETRY_INTERVAL:-300}
+    command: ["/bin/sh", "/opt/certbot/ensure-cert.sh"]
+    volumes:
+      - ./certbot/scripts/ensure-cert.sh:/opt/certbot/ensure-cert.sh:ro
+      - ./volumes/letsencrypt:/etc/letsencrypt
+      - ./volumes/certbot-www:/var/www/certbot

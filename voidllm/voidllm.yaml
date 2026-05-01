@@ -1,0 +1,13 @@
+server:
+  proxy:
+    port: 8080
+    read_timeout: 30s
+    write_timeout: 120s
+    idle_timeout: 60s
+    drain_timeout: 25s
+  admin:
+    port: 8443
+
+settings:
+  admin_key: ${VOIDLLM_ADMIN_KEY}
+  encryption_key: ${VOIDLLM_ENCRYPTION_KEY}
