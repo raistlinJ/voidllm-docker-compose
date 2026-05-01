@@ -1,0 +1,37 @@
+name: Validate Compose
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      DOMAIN: voidllm.example.com
+      LETSENCRYPT_EMAIL: admin@example.com
+      LETSENCRYPT_STAGING: "1"
+      TZ: UTC
+      VOIDLLM_ADMIN_KEY: abcdefghijklmnopqrstuvwxyz123456
+      VOIDLLM_ENCRYPTION_KEY: zyxwvutsrqponmlkjihgfedcba654321
+      VOIDLLM_LICENSE: ""
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Show Docker versions
+        run: |
+          docker --version
+          docker compose version
+
+      - name: Validate Docker Compose rendering
+        run: docker compose config >/tmp/docker-compose.rendered.yml
+
+      - name: Validate shell entrypoints
+        run: /bin/sh -n nginx/scripts/start.sh certbot/scripts/ensure-cert.sh

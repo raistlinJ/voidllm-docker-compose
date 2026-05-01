@@ -38,7 +38,7 @@ services:
     command: ["/bin/sh", "/opt/nginx/scripts/start.sh"]
     ports:
       - "80:80"
-      - "443:443"
+      - "${WEB_APP_PORT:-443}:443"
     volumes:
       - ./nginx/templates:/opt/nginx/templates:ro
       - ./nginx/scripts/start.sh:/opt/nginx/scripts/start.sh:ro
