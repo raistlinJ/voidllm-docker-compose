@@ -11,7 +11,16 @@ require_env() {
 }
 
 cert_ready() {
-  [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ] && [ -f "/etc/letsencrypt/live/$DOMAIN/privkey.pem" ]
+  [ -f "/etc/letsencrypt/fullchain.pem" ] && [ -f "/etc/letsencrypt/privkey.pem" ]
+}
+
+sync_active_cert_files() {
+  if [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ] || [ ! -f "/etc/letsencrypt/live/$DOMAIN/privkey.pem" ]; then
+    return 1
+  fi
+
+  cp "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" "/etc/letsencrypt/fullchain.pem"
+  cp "/etc/letsencrypt/live/$DOMAIN/privkey.pem" "/etc/letsencrypt/privkey.pem"
 }
 
 wait_for_nginx() {
@@ -82,6 +91,7 @@ fi
 while :; do
   if cert_ready; then
     if renew_certificates; then
+      sync_active_cert_files || true
       sleep "${CERTBOT_RENEW_INTERVAL:-43200}"
       continue
     fi
@@ -92,6 +102,12 @@ while :; do
   fi
 
   if request_certificate; then
+    if ! sync_active_cert_files; then
+      echo "certificate issued but active cert files were not created" >&2
+      sleep "${CERTBOT_RETRY_INTERVAL:-300}"
+      continue
+    fi
+
     sleep "${CERTBOT_RENEW_INTERVAL:-43200}"
     continue
   fi

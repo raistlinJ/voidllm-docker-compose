@@ -8,6 +8,55 @@ server:
   admin:
     port: 8443
 
+database:
+  driver: sqlite
+  dsn: /data/voidllm.db
+
+cache:
+  key_ttl: 30s
+  model_ttl: 60s
+  alias_ttl: 60s
+
+redis:
+  enabled: false
+
+models:
+  - name: bootstrap-model
+    provider: openai
+    base_url: https://api.openai.com/v1
+    api_key: ${OPENAI_KEY:-replace-me}
+
 settings:
   admin_key: ${VOIDLLM_ADMIN_KEY}
   encryption_key: ${VOIDLLM_ENCRYPTION_KEY}
+  license: ${VOIDLLM_LICENSE}
+  usage:
+    buffer_size: 1000
+    flush_interval: 5s
+    drop_on_full: true
+  token_counting:
+    enabled: true
+  soft_limit_threshold: 0.9
+  mcp:
+    call_timeout: 30s
+    allow_private_urls: false
+    health:
+      enabled: false
+      interval: 60s
+    code_mode:
+      enabled: false
+      memory_limit_mb: 16
+      timeout: 30s
+      pool_size: 8
+    max_tool_calls: 50
+  health_check:
+    health:
+      enabled: true
+      interval: 30s
+    functional:
+      enabled: false
+      interval: 5m
+
+logging:
+  level: info
+  format: json

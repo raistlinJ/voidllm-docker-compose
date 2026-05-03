@@ -31,10 +31,10 @@ This stack runs VoidLLM behind Nginx with automatic Let's Encrypt certificate is
 
 ```bash
 openssl rand -base64 32
-openssl rand -base64 32
 ```
 
-Use one value for `VOIDLLM_ADMIN_KEY` and one for `VOIDLLM_ENCRYPTION_KEY`.
+Use the generated value for `VOIDLLM_ADMIN_KEY`.
+`VOIDLLM_ENCRYPTION_KEY` can be set explicitly, or left blank in `.env` to auto-generate a persistent key on first startup.
 
 ## Quick Start
 
@@ -68,6 +68,23 @@ docker compose up -d certbot
 8. Open `https://$DOMAIN` after the real certificate is issued. If `WEB_APP_PORT` is not `443`, use `https://$DOMAIN:$WEB_APP_PORT` instead.
 
 VoidLLM prints the bootstrap credentials once on first start. Save them from the `voidllm` logs.
+If `VOIDLLM_ENCRYPTION_KEY` is blank, startup generates it and stores it in `./volumes/voidllm-data/voidllm-encryption.key`.
+
+## Using Host Ollama From WebUI
+
+If Ollama runs on the Docker host (not inside this Compose stack), configure it from the VoidLLM WebUI as an OpenAI-compatible provider.
+
+1. Open the VoidLLM WebUI and go to the model/provider configuration page.
+2. Add a provider using the OpenAI-compatible option (or OpenAI, depending on UI label).
+3. Set `Base URL` to `http://host.docker.internal:11434/v1`.
+4. If the UI requires an API key, use any non-empty placeholder value (for example `ollama`).
+5. Set `Model` to an existing local Ollama model tag (for example `gemma4:31b` or `deepseek-r1:70b`).
+6. Save and run a test prompt.
+
+Notes:
+- `host.docker.internal` lets containers reach services running on the host machine.
+- For OpenAI-compatible mode, include `/v1` in the base URL.
+- If your UI has a dedicated Ollama provider type, use host `host.docker.internal` and port `11434`, and follow that form's URL expectations.
 
 ## DNS Notes
 
@@ -87,15 +104,15 @@ dig +short AAAA $DOMAIN
 
 - The stack only requests a brand-new certificate when the mounted files for `DOMAIN` do not exist yet.
 - Once a certificate is present, Certbot switches to renewal mode and keeps using the existing certificate lineage.
-- Certificates are stored on the host under `./volumes/letsencrypt` because that directory is bind-mounted to `/etc/letsencrypt` inside both the `nginx` and `certbot` containers.
+- Certificates are stored on the host under `./certs` because that directory is bind-mounted to `/etc/letsencrypt` inside both the `nginx` and `certbot` containers.
 - The active certificate files are:
 
 ```text
-./volumes/letsencrypt/live/$DOMAIN/fullchain.pem
-./volumes/letsencrypt/live/$DOMAIN/privkey.pem
+./certs/fullchain.pem
+./certs/privkey.pem
 ```
 
-- Certbot also keeps its normal renewal metadata in `./volumes/letsencrypt/archive` and `./volumes/letsencrypt/renewal`.
+- Certbot still keeps certificate lineage metadata in `./certs/live/$DOMAIN`, `./certs/archive`, and `./certs/renewal` for renewals.
 - The ACME HTTP-01 webroot used during issuance is stored separately in `./volumes/certbot-www`.
 
 ## First-Run Troubleshooting
@@ -110,7 +127,7 @@ dig +short AAAA $DOMAIN
 ### Nginx stays on HTTP and returns 503
 
 - This is expected before the first successful certificate issuance.
-- Check whether `./volumes/letsencrypt/live/$DOMAIN/fullchain.pem` and `privkey.pem` exist.
+- Check whether `./certs/fullchain.pem` and `./certs/privkey.pem` exist.
 - If they do not exist, the failure is on the ACME side, not the Nginx side.
 
 ### VoidLLM is up but the site returns 502

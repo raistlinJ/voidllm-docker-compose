@@ -1,6 +1,6 @@
 services:
   voidllm:
-    image: ghcr.io/voidmind-io/voidllm:latest
+    image: ghcr.io/voidmind-io/voidllm@sha256:c558d62182302aae06e0c070f63f5c99df94d0b4fb5d1fe3818c753611194fb9
     restart: unless-stopped
     environment:
       TZ: ${TZ:-UTC}
@@ -8,16 +8,14 @@ services:
       VOIDLLM_ENCRYPTION_KEY: ${VOIDLLM_ENCRYPTION_KEY}
       VOIDLLM_DATABASE_DSN: /data/voidllm.db
       VOIDLLM_LICENSE: ${VOIDLLM_LICENSE:-}
-    command:
-      - voidllm
-      - --config
-      - /etc/voidllm/voidllm.yaml
+    entrypoint: ["/bin/sh", "/opt/voidllm/start.sh"]
     expose:
       - "8080"
       - "8443"
     volumes:
       - ./voidllm/voidllm.yaml:/etc/voidllm/voidllm.yaml:ro
-      - ./volumes/voidllm-data:/data
+      - ./voidllm/scripts/start.sh:/opt/voidllm/start.sh:ro
+      - voidllm-data:/data
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz >/dev/null || exit 1"]
       interval: 15s
@@ -34,7 +32,7 @@ services:
     environment:
       DOMAIN: ${DOMAIN}
       CERTBOT_WEBROOT: /var/www/certbot
-      LETSENCRYPT_LIVE_DIR: /etc/letsencrypt/live/${DOMAIN}
+      LETSENCRYPT_LIVE_DIR: /etc/letsencrypt
     command: ["/bin/sh", "/opt/nginx/scripts/start.sh"]
     ports:
       - "80:80"
@@ -42,7 +40,7 @@ services:
     volumes:
       - ./nginx/templates:/opt/nginx/templates:ro
       - ./nginx/scripts/start.sh:/opt/nginx/scripts/start.sh:ro
-      - ./volumes/letsencrypt:/etc/letsencrypt
+      - ./certs:/etc/letsencrypt
       - ./volumes/certbot-www:/var/www/certbot
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/nginx-health >/dev/null || exit 1"]
@@ -64,8 +62,11 @@ services:
       CERTBOT_WEBROOT: /var/www/certbot
       CERTBOT_RENEW_INTERVAL: ${CERTBOT_RENEW_INTERVAL:-43200}
       CERTBOT_RETRY_INTERVAL: ${CERTBOT_RETRY_INTERVAL:-300}
-    command: ["/bin/sh", "/opt/certbot/ensure-cert.sh"]
+    entrypoint: ["/bin/sh", "/opt/certbot/ensure-cert.sh"]
     volumes:
       - ./certbot/scripts/ensure-cert.sh:/opt/certbot/ensure-cert.sh:ro
-      - ./volumes/letsencrypt:/etc/letsencrypt
+      - ./certs:/etc/letsencrypt
       - ./volumes/certbot-www:/var/www/certbot
+
+volumes:
+  voidllm-data:
